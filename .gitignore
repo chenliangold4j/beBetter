@@ -6,6 +6,7 @@ afile.dat
 *.lo
 *.o
 *.obj
+*.s
 
 # Precompiled Headers
 *.gch
