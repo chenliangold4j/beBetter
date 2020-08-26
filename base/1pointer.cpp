@@ -1,5 +1,6 @@
 #include <iostream>
  
+//  g++ -S 可以生成汇编
 using namespace std;
 //取地址
 int main ()
