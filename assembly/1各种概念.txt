@@ -190,3 +190,14 @@
         执行 CALL 指令时，CPU 在堆栈中保存当前过程的返回地址。
         调用过程时，输入数值也被称为参数，通过将其压入堆栈实现参数传递。
         堆栈也为过程局部变量提供了临时存储区域。        
+
+5.过程嵌套调用：
+       .data
+        theSum DWORD ?
+        .code
+        main PROC
+        mov eax, 10000h          ;参数
+        mov ebx, 20000h          ;参数
+        mov ecx, 30000h          ;参数
+        call Sumof               ;EAX=(EAX+EEX+ECX)
+        mov theSum,eax           ;保存和数

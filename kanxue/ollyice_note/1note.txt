@@ -1,0 +1,9 @@
+1.F7 F8 单步，但是F7会进入call loop
+2.ctrl F7  ctrl F8 直到用户按 'esc' f12 或其他断点才停止
+3.ctrl f9 停止在第一个命令返回处 ret retf iret;
+4.alt + f9 回到应用程序领空，
+5. f9 执行
+6 ctrl f2 重新调试
+7 f12 暂停程序
+8 f2 设置断点
+9 
