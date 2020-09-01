@@ -1,0 +1,77 @@
+
+1. MODEL
+    首先是 .MODEL 伪指令，它告诉汇编程序用的是哪一种存储模式：
+    .model flat,stdcall
+    32 位程序总是使用平面（flat）存储模式，它与处理器的保护模式相关联。关键字 stdcall 在调用程序时告诉汇编器，怎样管理运行时堆栈。
+
+
+2.STACK
+    然后是 .STACK 伪指令，它告诉汇编器应该为程序运行时堆栈保留多少内存字节：
+    .stack 4096
+    数值 4096 可能比将要用的字节数多，但是对处理器的内存管理而言，它正好对应了一个内存页的大小。所有的现代程序在调用子程序时都会用到堆栈。
+    首先，用来保存传递的参数；其次，用来保存调用函数的代码的地址。
+
+    函数调用结束后，CPU 利用这个地址返回到函数被调用的程序点。此外，运行时堆栈还可以保存局部变量，也就是，在函数内定义的变量。
+
+3.CODE
+    .CODE 伪指令标记一个程序代码区的起点，代码区包含了可执行指令。通常，.CODE 的下一行声明程序的入口，按照惯例，一般会是一个名为 main 的过程。
+    程序的入口是指程序要执行的第一条指令的位置。用下面两行来传递这个信息：
+    .code
+    main PROC
+
+4.ENDP
+    ENDP 伪指令标记一个过程的结束。如果程序有名为 main 的过程，则 endp 就必须使用同样的名称：
+    main ENDP
+
+5.END
+    最后，END 伪指令标记一个程序的结束，并要引用程序入口：
+    END main
+    如果在 END 伪指令后面还有更多代码行，它们都会被汇编程序忽略。程序员可以在这里放各种内容一一程序注释，代码副本等等，都无关紧要。
+
+6.EQU 
+    EQU 伪指令把一个符号名称与一个整数表达式或一个任意文本连接起来，它有 3 种格式：
+    name EQU expression
+    name EQU symbol
+    name EQU <text>
+
+7.TEXTEQU 
+    TEXTEQU 伪指令，类似于 EQU，创建了文本宏（text macro）。它有 3 种格式：第一种为名称分配的是文本；第二种分配的是已有文本宏的内容；第三种分配的是整数常量表达式：
+    name TEXTEQU <text>
+    name TEXTEQU textmacro
+    name TEXTEQU %constExpr
+
+    例如，变量 prompt1 使用了文本宏 continueMsg：
+    continueMsg TEXTEQU <"Do you wish to continue (Y/N)?">
+    .data
+    prompt1 BYTE continueMsg
+
+8.ALIGN 
+    伪指令将一个变量对齐到字节边界、字边界、双字边界或段落边界。
+    语法如下：
+    ALIGN bound
+
+    Bound 可取值有：1、2、4、8、16。当取值为 1 时，则下一个变量对齐于 1 字节边界（默认情况）。
+    当取值为 2 时，则下一个变量对齐于偶数地址。当取值为 4 时，则下一个变量地址为 4 的倍数。
+    当取值为 16 时，则下一个变量地址为 16 的倍数，即一个段落的边界。
+
+    下述例子中，bVal 处于任意位置，但其偏移量为 0040 4000。在 wVal 之前插入 ALIGN 2 伪指令，这使得 wVal 对齐于偶地址偏移量：
+    bVal BYTE ?           ;00404000h
+    ALIGN 2 
+    wVal WORD ?           ;00404002h
+    bVal2 BYTE ?          ;00404004h
+    ALIGN 4 
+    dVal DWORD ?          ;00404008h
+    dVal2 DWORD ?         ;0040400Ch
+    请注意，dVal 的偏移量原本是 0040 4005，但是 ALIGN 4 伪指令使它的偏移量成为 0040 4008。
+9.LABEL 
+    LABEL伪指令可以插入一个标号，并定义它的大小属性，但是不为这个标号分配存储空间。LABEL 中可以使用所有的标准大小属性，如 BYTE、WORD、DWORD、QWORD 或 TBYTE。
+
+    LABEL 常见的用法是，为数据段中定义的下一个变量提供不同的名称和大小属性。如下例所示，在变量 val32 前定义了一个变量，名称为 val16 属性为 WORD：
+    .data
+    val16 LABEL WORD
+    val32 DWORD 12345678h
+    .code
+    mov ax,val16          ; AX = 5678h
+    mov dx,[val16+2]      ; DX = 1234h
+    val16 与 val32 共享同一个内存位置。LABEL 伪指令自身不分配内存。
+

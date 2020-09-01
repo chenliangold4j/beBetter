@@ -1,0 +1,181 @@
+1.MOV 
+    指令将源操作数复制到目的操作数。作为数据传送（data transfer）指令，它几乎用在所有程序中。在它的基本格式中，第一个操作数是目的操作数，第二个操作数是源操作数：
+    MOV destination,source
+    MOVZX 指令（进行全零扩展并传送）将源操作数复制到目的操作数，并把目的操作数 0 扩展到 16 位或 32 位。
+    MOVSX 指令（进行符号扩展并传送）将源操作数内容复制到目的操作数，并把目的操作数符号扩展到 16 位或 32 位。
+
+2.
+    LAHF（加载状态标志位到 AH）指令将 EFLAGS 寄存器的低字节复制到 AH。被复制的标志位包括：
+    符号标志位、零标志位、辅助进位标志位、奇偶标志位和进位标志位。使用这条指令，可以方便地把标志位副本保管在变量中
+
+    SAHF（保存 AH 内容到状态标志位）指令将 AH 内容复制到 EFLAGS（或 RFLAGS）寄存器低字节。例如，可以检索之前保存到变量中的标志位数值
+
+3. XCHG（交换数据）指令交换两个操作数内容。  
+
+
+4.  变量名加上一个位移就形成了一个直接 - 偏移量操作数。
+    arrayB BYTE 10h,20h,30h,40h,50h
+    mov al,[arrayB+1]            ;AL = 20h
+
+    在 16 位的字数组中，每个数组元素的偏移量比前一个多 2 个字节。这就是为什么在下面的例子中，数组 ArrayW 加 2 才能指向该数组的第二个元素：
+    .data
+    arrayW WORD 100h,200h,300h
+    .code
+    mov ax, arrayW                               ;AX = 100h
+    mov ax,[arrayW+2]                            ;AX = 200h
+
+    如果是双字数组，则第一个元素偏移量加 4 才能指向第二个元素：
+    .data
+    arrayD DWORD l0000h,20000h
+    .code
+    mov eax, arrayD                            ;EAX = 10000h
+    mov eax,[arrayD+4]                         ;EAX = 20000h
+
+6.示例
+
+;数据传送示例
+.386
+.model flat,stdcall
+.stack 4096
+ExitProcess PROTO,dwExitCode:DWORD
+.data
+val1 WORD 1000h
+val2 WORD 2000h
+arrayB BYTE 10h,20h,30h,40h,50h
+arrayW WORD 100h,200h,300h
+arrayD DWORD 10000h,20000h
+
+.code
+main PROC
+;演示 MOVZX 指令
+    mov bx,0A69Bh
+    movzx eax,bx        ;EAX = 0000A69Bh
+    movzx edx,bl        ;EDX = 0000009Bh
+    movzx cx,bl         ;CX     = 009Bh
+;演示 MOVSX 指令
+    mov bx,0A69Bh
+    movsx eax,bx        ;EAX = FFFFA69Bh
+    movsx edx,bl        ;EDX = FFFFFF9Bh
+    mov bl,7Bh
+    movsx cx,bl         ;CX = 007Bh
+;内存-内存的交换
+    mov ax,val1         ;AX = 1000h
+    xchg ax val2        ;AX = 2000h,val2 = 1000h
+    mov val1,ax         ;val1 = 2000h
+;直接-偏移量寻址（字节数组）
+    mov al,arrayB        ;AL = 10h
+    mov al,[arrayB+1]    ;AL = 20h
+    mov al,[arrayB+2]    ;AL = 30h
+;直接-偏移量寻址（字数组）
+    mov ax,arrayW        ;AX = 100h
+    mov ax,[arrayW+2]    ;AX = 200h
+;直接-偏移量寻址（双字数组）
+    mov eax,arrayD        ;EAX = 10000h
+    mov eax,[arrayD+4]    ;EAX = 20000h
+    mov eax,[arrayD+4]    ;EAX = 20000h
+
+    INVOKE ExitProcess,0
+main ENDP
+END main
+
+7.加减
+    INC（增加）和DEC（减少）指令分别表示寄存器或内存操作数加 1 和减 1
+
+    ADD 指令将长度相同的源操作数和目的操作数进行相加操作。语法如下：
+    ADD dest,source
+
+    SUB 指令从目的操作数中减去源操作数。该指令对操作数的要求与 ADD 和 MOV 指令相同。指令语法如下：
+    SUB dest, source
+
+    NEG（非）指令通过把操作数转换为其二进制补码，将操作数的符号取反。下述操作数可以用于该指令：
+    提示：将目标操作数按位取反再加 1，就可以得到这个数的二进制补码。
+8.示例
+
+;加法和减法   （AddSubTest.asm）
+.386
+.model flat,stdcall
+.stack 4096
+ExitProcess proto,dwExitCode:dword
+.data
+Rval    SDWORD ?
+Xval    SDWORD 26
+Yval    SDWORD 30
+Zval    SDWORD 40
+
+.code
+main PROC
+    ;INC和DEC
+    mov    ax,1000h
+    inc    ax        ;1001h
+    dec    ax        ;1000h
+    ;表达式：Rval=-Xval+(Yval-Zval)
+    mov    eax,Xval
+    neg    eax        ;-26
+    mov    ebx,Yval
+    sub    ebx,Zval   ;-10
+    add    eax,ebx
+    mov    Rval,eax;36
+    ;零标志位示例
+    mov    cx,1
+    sub    cx,1       ;ZF = 1
+    mov    ax,0FFFFh
+    inc    ax         ;ZF = 1
+    ;符号标志位示例
+    mov    cx,0
+    sub    cx,1       ;SF = 1
+    mov    ax,7FFFh
+    add    ax,2       ;SF = 1
+    ;进位标志位示例
+    mov    al,0FFh
+    add    al,1       ;CF = 1,AL = 00
+    ;溢出标志位示例
+    mov    al,+127
+    add    al,1       ;OF = 1
+    mov    al,-128
+    sub    al,1       ;OF = 1
+
+    INVOKE ExitProcess,0
+main ENDP
+END main
+
+9.OFFSET 运算符返回数据标号的偏移量。这个偏移量按字节计算，表示的是该数据标号距离数据段起始地址的距离。
+    在下面的例子中，将用到如下三种类型的变量：
+    .data
+    bVal BYTE ?
+    wVal WORD ?
+    dVal DWORD ?
+    dVal2 DWORD ?
+    假设 bVal 在偏移量为 0040 4000（十六进制）的位置，则 OFFSET 运算符返回值如下：
+    mov esi,OFFSET bVal             ; ESI = 00404000h
+    mov esi,OFFSET wVal             ; ESI = 00404001h
+    mov esi,OFFSET dVal             ; ESI = 00404003h
+    mov esi,OFFSET dVal2            ; ESI = 00404007h
+
+    OFFSET 也可以应用于直接 - 偏移量操作数。设 myArray 包含 5 个 16 位的字。下面的 MOV 指令首先得到 myArray 的偏移量，然后加 4，再将形成的结果地址直接传送给 ESI。因此，现在可以说 ESI 指向数组中的第 3 个整数。
+    .data
+    myArray WORD 1,2,3,4,5
+    .code
+    mov esi,OFFSET myArray + 4
+
+10.PTR
+    PTR 运算符可以用来重写一个已经被声明过的操作数的大小类型。只要试图用不同于汇编器设定的大小属性来访问操作数，那么这个运算符就是必需的
+    例如，假设想要将一个双字变量 myDouble 的低 16 位传送给 AXO 由于操作数大小不匹配，因此，汇编器不会允许这种操作：
+    .data
+    myDouble DWORD 12345678h
+    .code
+    mov ax,myDouble
+    但是，使用 WORD PTR 运算符就能将低位字（5678h）送入 AX：
+    纯文本复制
+    mov ax,WORD PTR myDouble
+11 TYPE 运算符返回变量单个元素的大小，这个大小是以字节为单位计算的。比如，TYPE 为字节，返回值是 1；TYPE 为字，返回值是 2；TYPE 为双字，返回值是 4；TYPE 为四字，返回值是 8
+
+12.LENGTHOF 
+    运算符计算数组中元素的个数，元素个数是由数组标号同一行出现的数值来定义的。示例如下：
+    比如有如下数据，则 LENGTHOF myArray 返回值为 5 :
+    myArray BYTE 10,20,30,40,50
+            BYTE 60,70,80,90,100
+    若有如下数据定义， LENGTHOF myArray 返回值为 10：
+    myArray BYTE 10,20,30,40,50,
+                60,70,80,90,100
+
+13.
