@@ -1,0 +1,126 @@
+1.base
+    AMD 和 Intel 64 位处理器的出现增加了对 64 位编程的兴趣。MASM 支持 64 位代码，所有的 Visual Studio 2012 版本（最终版、高级版和专业版）
+    以及桌面系统的 Visual Studio 2012 Express 都会同步安装 64 位版本的汇编器。
+
+    现在借助《数据定义》一节中给出的 AddTwoSum 程序，将其改为 64 位编程：
+    ;AddTowSum_64.asm
+    ExitProcess PROTO
+    .data
+    sum DWORD 0
+    .code
+    main PROC
+        mov eax,5
+        add eax,6
+        mov sum,eax
+    mov eax,0
+        call ExitProcess
+    main ENDP
+    END
+    上述程序与之前给出的 32 位版本不同之处如下所示：
+
+    1) 32 位 AddTwoSum 程序中使用了下列三行代码，而 64 位版本中则没有：
+    .386
+    .model flat,stdcall
+    .stack 4096
+    2) 64 位程序中，使用 PROTO 关键字的语句不带参数，如第 3 行代码所示：
+    ExitProcess PROTO
+
+    32 位版本代码如下：
+    ExitProcess PROTO,dwExitCode:DWORD
+
+    3) 14〜15 行使用了两条指令（mov 和 call）来结束程序。32 位版本则只使用了一条 INVOKE 语句实现同样的功能。64 位 MASM 不支持 INVOKE 伪指令。
+
+    4) 在第 17 行，END 伪指令没有指定程序入口点，而 32 位程序则指定了。
+    使用 64 位寄存器
+    在某些应用中，可能需要实现超过 32 位的整数的算术运算。在这种情况下，可以使用 64 位寄存器和变量。例如，下述步骤让示例程序能使用 64 位数值：
+    在第 6 行，定义 sum 变量时，把 DWORD 修改为 QWORD。
+    在 10〜12 行，把 EAX 替换为其 64 位版本 RAX。
+
+    下面是修改后的 6〜12 行：
+    sum DWORD 0
+
+    .code
+    main PROC
+        mov rax,5
+        add rax,6
+        mov sum,rax
+
+    编写 32 位还是 64 位汇编程序，很大程度上是个人喜好的问题。但是，需要记住：64 位 MASM 11.0 （Visual Studio 2012 附带的）不支持 INVOKE 伪指令。
+    同时，为了运行 64 位程序，必须使用 64 位Windows。
+
+2.MOV
+    64 位模式下的 MOV 指令与 32 位模式下的有很多共同点，只有几点区别，现在讨论一下。立即操作数（常数）可以是 8 位、16 位、32 位或 64 位。下面为一个 64 位示例：
+    mov rax, 0ABCDEF0AFFFFFFFFh ; 64 位立即操作数
+    当一个 32 位常数送入 64 位寄存器时，目标操作数的高 32 位（位 32—位 63）被清除（等于 0）：
+    mov rax, 0FFFFFFFFh ;rax = 00000000FFFFFFFF
+    向 64 位寄存器送入 16 位或 8 位常数，其高位也要清零：
+    mov rax, 06666h  ;清位 16—位 63
+    mov rax, 055h      ;清位 8—位 63
+    如果将内存操作数送入 64 位寄存器，则结果是确定的。比如，传送一个 32 位内存操作数到 EAX（RAX 寄存器的低半部分），就会清除 RAX 的高 32 位：
+    .data
+    myDword DWORD 80000000h
+    .code
+    mov rax,0FFFFFFFFFFFFFFFFh
+    mov eax,myDword                     ; RAX = 0000000080000000
+    但是，如果是将 8 位或 16 位内存操作数送入 RAX 的低位，那么，目标寄存器的高位不受影响：
+    .data
+    myByte BYTE 55h
+    myWord WORD 6666h
+    .code
+    mov ax,myWord                ;位 16—位 63 不受影响
+    mov al, myByte                  ;位 8—位 63 不受影响
+    MOVSXD 指令（符号扩展传送）允许源操作数为 32 位寄存器或内存操作数。下面的指令使得 RAX 的值为 FFFFFFFFFFFFFFFFh：
+    mov ebx, 0FFFFFFFFh
+    movsxd rax,ebx
+    OFFSET 运算符产生 64 位地址，必须用 64 位寄存器或变量来保存。下例中使用的是 RSI 寄存器：
+    .data
+    myArray WORD 10,20,30,40
+    .code
+    mov rsi,OFFSET myArray
+    64 位模式中，LOOP 指令用 RCX 作为循环计数器。
+
+3.加法和减法
+    如同 32 位模式下一样，ADD、SUB、INC 和 DEC 指令在 64 位模式下，也会影响 CPU 状态标志位。在下面的例子中，RAX 寄存器存放一个 32 位数，执行加 1，
+    每一位都向左产生一个进位，因此，在位 32 生成 1：
+
+    mov rax, 0FFFFFFFFh ;低 32 位是全 1
+    add rax,1           ; RAX = 100000000h
+
+    需要时刻留意操作数的大小，当操作数只使用部分寄存器时，要注意寄存器的其他部分是没有被修改的。如下例所示，AX 中的 16 位总和翻转为全 0，但是不影响 RAX 的高位。
+    这是因为该操作只使用 16 位寄存器（AX 和 BX）：
+    mov rax,0FFFFh        ; RAX = 000000000000FFFF
+    mov bx, 1
+    add ax,bx             ; RAX = 0000000000000000
+
+    同样，在下面的例子中，由于 AL 中的进位不会进入 RAX 的其他位，所以执行 ADD 指令后，RAX 等于 0：
+    mov rax,0FFh         ; RAX = 00000000000000FF
+    mov bl, 1
+    add al,bl            ; RAX = 0000000000000000
+
+    减法也使用相同的原则。在下面的代码段中，EAX 内容为 0，对其进行减 1 操作，将会使得 RAX 低 3 2位变为 -1（FFFFFFFFh）。
+    同样，AX 内容为 0，对其进行减 1 操作，使得 RAX 低 16 位等于 -1（FFFFh）。
+    mov rax,0               ; RAX = 0000000000000000
+    mov ebx, 1
+    sub eax,ebx             ; RAX = 00000000FFFFFFFF
+    mov rax,0               ; RAX = 0000000000000000
+    mov bx,1
+    sub ax,bx               ; RAX = 000000000000FFFF
+
+    当指令包含间接操作数时，必须使用 64 位通用寄存器。记住，一定要使用 PTR 运算符来明确目标操作数的大小。下面是一些包含了 64 位目标操作数的例子：
+    dec BYTE PTR [rdi]              ;8 位目标操作数
+    inc WORD PTR [rbx]              ;16 位目标操作数
+    inc QWORD PTR [rsi]             ;64 位目标操作数
+    
+    64 位模式下，可以对间接操作数使用比例因子，就像在 32 位模式下一样。如下例所示，如果处理的是 64 位整数数组，比例因子就是 8：
+    .data
+    array QWORD 1,2,3,4
+    .code
+    mov esi, 3                   ;下标
+    mov rax,array[rsi*8]         ; RAX = 4
+    64 位模式的指针变量包含的是 64 位偏移量。在下面的例子中，ptrB 变量包含了数组 B 的偏移量：
+    .data
+    arrayB BYTE 10h, 20h, 30h, 40h
+    ptrB QWORD arrayB
+    或者，还可以用 OFFSET 运算符来定义 ptrB，使得这个关系更加明确：
+    纯文本复制
+    ptrB QWORD OFFSET arrayB

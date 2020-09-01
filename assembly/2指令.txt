@@ -165,8 +165,8 @@ END main
     .code
     mov ax,myDouble
     但是，使用 WORD PTR 运算符就能将低位字（5678h）送入 AX：
-    纯文本复制
     mov ax,WORD PTR myDouble
+
 11 TYPE 运算符返回变量单个元素的大小，这个大小是以字节为单位计算的。比如，TYPE 为字节，返回值是 1；TYPE 为字，返回值是 2；TYPE 为双字，返回值是 4；TYPE 为四字，返回值是 8
 
 12.LENGTHOF 
@@ -178,4 +178,160 @@ END main
     myArray BYTE 10,20,30,40,50,
                 60,70,80,90,100
 
-13.
+13.JMP 指令
+    JMP 指令无条件跳转到目标地址，该地址用代码标号来标识，并被汇编器转换为偏移 量。语法如下所示：
+    JMP destination
+    当 CPU 执行一个无条件转移时，目标地址的偏移量被送入指令指针寄存器，从而导致迈从新地址开始继续执行。
+
+    JMP 指令提供了一种简单的方法来创建循环，即跳转到循环开始时的标号：
+    top:
+        .
+        .
+        jmp top     ;不断地循环
+    JMP 是无条件的，因此循环会无休止地进行下去，除非找到其他方法退岀循环。
+
+14.LOOP 指令
+    LOOP 指令，正式称为按照 ECX 计数器循环，将程序块重复特定次数。ECX 自动成为计数器，每循环一次计数值减 1。语法如下所示：
+    LOOP destination
+    循环目标必须距离当前地址计数器 -128 到 +127 字节范围内。LOOP 指令的执行有两个步骤：
+    第一步，ECX 减 1。
+    第二步，将 ECX 与 0 比较。
+
+    如果 ECX 不等于 0，则跳转到由目标给岀的标号。否则，如果 ECX 等于 0，则不发生跳转，并将控制传递到循环后面的指令。
+
+    实地址模式中，CX 是 LOOP 指令的默认循环计数器。同时，LOOPD 指令使用 ECX 为循环计数器，LOOPW 指令使用 CX 为循环计数器。
+
+    下面的例子中，每次循环是将 AX 加 1。当循环结束时，AX=5, ECX=0：
+        mov ax,0
+        mov ecx,5
+    L1:
+        inc ax
+    loop L1
+    
+15.示例：整数求和
+    ; 数组求和（SumArray. asm）
+    .386
+    .model flat,stdcall
+    .stack 4096
+    ExitProcess proto,dwExitCode:dword
+    .data
+    intarray DWORD 10000h,20000h,30000h,40000h
+    .code
+    main PROC
+        mov edi, OFFSET intarray   ; 1: EDI=intarray 地址
+        mov ecx, LENGTHOF intarray ; 2 :循环计数器初始化
+        mov    eax,0               ; 3:    sum=0
+    L1:                            ; 4：标记循环开始的地方
+        add    eax,    [edi]       ; 5：加一个整数
+        add edi, TYPE intarray     ; 6：指向下一个元素
+        loop    L1                 ; 7：重复，直到 ECX=0
+        invoke ExitProcess, 0
+    main ENDP
+    END main
+
+
+    示例：复制字符串
+    ;复制字符串    （CopyStr.asm）
+    .386
+    .model flat,stdcall
+    .stack 4096
+    ExitProcess proto,dwExitCode:dword
+    .data
+    source BYTE "This is the source string", 0
+    target BYTE SIZEOF source DUP(0)
+    .code
+    main PROC
+        mov    esi, 0                      ;变址寄存器
+        mov ecx, SIZEOF source             ;循环计数器
+    L1：                                   ;从源字符串获取一个字符
+        mov    al, source [esi]            ;保存到目标字符串
+        mov target [esi] , al              ;指向下一个字符
+        inc esi                            ;重复，直到整个字符串完成
+        loop L1
+        invoke ExitProcess,0
+    main ENDP
+    END main
+
+16.PUSH 指令
+    PUSH 指令首先减少 ESP 的值，再将源操作数复制到堆栈。操作数是 16 位的，则 ESP 减 2，操作数是 32 位的，则 ESP 减 4。PUSH 指令有 3 种格式：
+    PUSH reg/mem16
+    PUSH reg/mem32
+    PUSH inm32
+
+17.POP指令
+    POP 指令首先把 ESP 指向的堆栈元素内容复制到一个 16 位或 32 位目的操作数中，再增加 ESP 的值。如果操作数是 16 位的，ESP 加 2，如果操作数是 32 位的，ESP 加 4：
+    POP reg/mem16
+    POP reg/mem32
+
+
+18.PUSHFD 和 POPFD 指令
+    PUSHFD 指令把 32 位 EFLAGS 寄存器内容压入堆栈，而 POPFD 指令则把栈顶单元内容弹出到 EFLAGS 寄存器：
+    不能用 MOV 指令把标识寄存器内容复制给一个变量，因此，PUSHFD 可能就是保存标志位的最佳途径。有些时候保存标志寄存器的副本是非常有用的，
+    这样之后就可以恢复标志寄存器原来的值。通常会用 PUSHFD 和 POPFD 封闭一段代码：
+    pushfd           ;保存标志寄存器
+    ;
+    ;任意语句序列
+    ;
+    popfd           ;恢复标志寄存器
+
+    当用这种方式使用入栈和出栈指令时，必须确保程序的执行路径不会跳过 POPFD 指令。当程序随着时间不断修改时，很难记住所有入栈和出栈指令的位置。因此，精确的文档就显得至关重要！
+
+19.PUSHAD，PUSHA，POPAD 和 POPA
+    PUSHAD 指令按照 EAX、ECX、EDX、EBX、ESP（执行 PUSHAD 之前的值）、EBP、ESI 和 EDI 的顺序，将所有 32 位通用寄存器压入堆栈。
+
+    POPAD 指令按照相反顺序将同样的寄存器弹出堆栈。与之相似，PUSHA 指令按序（AX、CX、DX、BX、SP、BP、SI 和 DI）将 16 位通用寄存器压入堆栈。
+
+    POPA 指令按照相反顺序将同样的寄存器弹出堆栈。在 16 位模式下，只能使用 PUSHA 和 POPA 指令。
+
+20.示例
+    ;字符串翻转（Revstr.asm）
+    .386
+    .model flat,stdcall
+    .stack 4096
+    ExitProcess PROTO,dwExitCode:DWORD
+
+    .data
+    aName BYTE "Abraham Lincoln",0
+    nameSize = ($-aName)-1
+
+    .code
+    main PROC
+    ;将名字压入堆栈
+        mov ecx,nameSize
+        mov esi,0
+
+    L1:    movzx eax,aName[esi]        ;获取字符
+        push eax                       ;压入堆栈
+        inc esi
+        loop L1
+    ;将名字逆序弹出堆栈
+    ;并存入aName数组
+        mov ecx,nameSize
+        mov esi,0
+
+    L2:    pop eax                        ;获取字符
+        mov aName[esi],al                 ;存入字符串
+        inc esi
+        loop L2
+
+        INVOKE ExitProcess,0
+    main ENDP
+    END main   
+
+21.CALL 指令 和 RET 指令
+    CALL 指令调用一个过程，指挥处理器从新的内存地址开始执行。过程使用 RET（从过程返回）指令将处理器转回到该过程被调用的程序点上。
+    调用和返回示例
+        假设在 main 过程中，CALL 指令位于偏移量为 0000 0020 处。通常，这条指令需要 5 个字节的机器码，因此，下一条语句（本例中为一条 MOV 指令）就位于偏移量为 0000 0025 处：
+            main PROC
+        00000020  call MySub
+        00000025  mov eax,ebx
+
+        然后，假设 MySub 过程中第一条可执行指令位于偏移量 0000 0040 处：
+        MySub PROC
+        00000040 mov eaxz edx
+            .
+            .
+            ret
+        MySub ENDP
+        当 CALL 指令执行时如下图所示，调用之后的地址（0000 0025）被压入堆栈，MySub 的地址加载到 EIP。
+        执行 MySub 中的全部指令直到 RET 指令。当执行 RET 指令时，ESP 指向的堆栈数值被弹岀到 EIP。在步骤 2 中，ESP 的数值增加，从而指向堆栈中的前一个值。

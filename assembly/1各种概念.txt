@@ -1,0 +1,192 @@
+1. 32位寄存器概述（16个）：
+    4个数据（通用）寄存器：(EAX、EBX、ECX、EDX)。
+    6个段寄存器：（ES、CS、SS、DS、FS、GS）。
+    2个变址寄存器：（ESI、EDI）。
+    2个指针寄存器（ESP、EBP）。
+    1个指令指针寄存器：EIP。
+    1个标志寄存器:  EFlags。
+
+2.64位寄存器分配的不同
+    64位有16个寄存器，32位只有8个。但是32位前8个都有不同的命名，分别是e _ ，而64位前8个使用了r代替e，也就是r _。e开头的寄存器命名依然可以直接运用于相应寄存器的低32位。
+    而剩下的寄存器名则是从r8 - r15，其低位分别用d，w,b指定长度。
+    32位使用栈帧来作为传递的参数的保存位置，而64位使用寄存器，分别用rdi,rsi,rdx,rcx,r8,r9作为第1-6个参数。rax作为返回值
+    64位没有栈帧的指针，32位用ebp作为栈帧指针，64位取消了这个设定，rbp作为通用寄存器使用
+    64位支持一些形式的以PC相关的寻址，而32位只有在jmp的时候才会用到这种寻址方式。
+
+3.间接寻址
+    直接寻址很少用于数组处理，因为，用常数偏移量来寻址多个数组元素时，直接寻址不实用。反之，会用寄存器作为指针（称为间接寻址）并控制该寄存器的值。
+    如果一个操作数使用的是间接寻址，就称之为间接操作数。
+
+    间接操作数：
+        保护模式
+        任何一个 32 位通用寄存器（EAX、EBX、ECX、EDX、ESI、EDI、EBP 和 ESP）加上括号就能构成一个间接操作数。
+
+        寄存器中存放的是数据的地址。示例如下，ESI 存放的是 byteVal 的偏移量，MOV 指令使用间接操作数作为源操作数，
+        解析 ESI 中的偏移量，并将一个字节送入 AL：
+        .data
+        byteVal BYTE 10h
+        .code
+        mov esi,OFFSET byteVal
+        mov al,[esi]                              ; AL = 10h
+        如果目的操作数也是间接操作数，那么新值将存入由寄存器提供地址的内存位置。在下面的例子中，BL 寄存器的内容复制到 ESI 寻址的内存地址中：
+        mov [esi],bl
+
+        如果目的操作数也是间接操作数，那么新值将存入由寄存器提供地址的内存位置。在下面的例子中，BL 寄存器的内容复制到 ESI 寻址的内存地址中：
+        mov [esi],bl
+        PTR 与间接操作数一起使用
+        一个操作数的大小可能无法从指令中直接看出来。下面的指令会导致汇编器产生“operand must have size（操作数必须有大小）”的错误信息：
+        inc [esi]    ;错误：operand must have size
+        汇编器不知道 ESI 指针的类型是字节、字、双字，还是其他的类型。而 PTR 运算符则可以确定操作数的大小类型：
+        inc BYTE PTR [esi]
+
+    数组
+        间接操作数是步进遍历数组的理想工具。下例中，arrayB 有 3 个字节，随着 ESI 不断加 1，它就能顺序指向每一个字节：
+        .data
+        arrayB BYTE 10h,20h,30h
+        .code
+        mov esi,OFFSET arrayB
+        mov alz [esi]                        ;AL = lOh
+        inc esi
+        mov al, [esi]                        ;AL = 20h
+        inc esi
+        mov al, [esi]                        ;AL = 30h
+        如果数组是 16 位整数类型，则 ESI 加 2 就可以顺序寻址每个数组元素：
+        .data
+        arrayW WORD 1000h,2000h,3000h
+        .code
+        mov esi,OFFSET arrayW
+        mov ax,[esi]                         ; AX = 1000h
+        add esi, 2
+        mov ax,[esi]                         ; AX = 2000h
+        add esi, 2
+        mov axz [esi]                        ; AX = 3000h
+        示例：32 位整数相加下面的代码示例实现的是 3 个双字相加。由于双字是 4 个字节的，因此，ESI 要加 4 才能顺序指向每个数组数值：
+        .data
+        arrayD DWORD 10000h,20000h,30000h
+        .code
+        mov esi,OFFSET arrayD
+        mov eax, [esi]                  ;（第一个数）
+        add esi, 4
+        add eax, [esi]                   ;（第二个数）
+        add esi, 4
+        add eax, [esi]                   ;（第三个数）
+    变址操作数
+        变址操作数是指，在寄存器上加上常数产生一个有效地址。每个 32 位通用寄存器都可以用作变址寄存器。MASM 可以用不同的符号来表示变址操作数（括号是表示符号的一部分）：
+        constant [reg]
+        [constant + reg]
+        第一种形式是变量名加上寄存器。变量名由汇编器转换为常数，代表的是该变量的偏移量。下面给岀的是两种符号形式的例子：
+
+        arrayB[esi]	[arrayB + esi]
+        arrayD[ebx]	[arrayD + ebx]
+        变址操作数非常适合于数组处理。在访问第一个数组元素之前，变址寄存器需要初始化为 0：
+        .data
+        arrayB BYTE 10h,20h,30h
+        .code
+        mov esi, 0
+        mov al, arrayB[esi]                ; AL = 10h
+        最后一条语句将 ESI 和 arrayB 的偏移量相加，表达式 [arrayB+ESI] 产生的地址被解析，并将相应内存字节的内容复制到AL。
+
+        增加位移量变址寻址的第二种形式是寄存器加上常数偏移量。变址寄存器保存数组或结构的基址，常数标识各个数组元素的偏移量。下例展示了在一个 16 位字数组中如何使用这种形式：
+        .data
+        arrayW WORD 1000h,2000h,3000h
+        .code
+        mov esi,OFFSET arrayW
+        mov ax, [esi]                   ;AX = 1000h
+        mov ax, [esi+2]                 ;AX = 2000h
+        mov ax, [esi+4]                 ;AX = 3000h
+        使用 16 位寄存器
+        在实地址模式中，一般用 16 位寄存器作为变址操作数。在这种情况下，能被使用的寄存器只有 SI、DI、BX 和 BP：
+        mov al,arrayB[si]
+        mov ax,arrayW[di]
+        mov eax,arrayD[bx]
+        如果有间接操作数，则要避免使用 BP 寄存器，除非是寻址堆栈数据。
+        变址操作数中的比例因子
+        在计算偏移量时，变址操作数必须考虑每个数组元素的大小。比如下例中的双字数组，下标（3 ）要乘以 4（一个双字的大小）才能生成内容为 400h 的数组元素的偏移量：
+        .data
+        arrayD DWORD 100h, 200h, 300h, 400h
+        .code
+        mov esi , 3 * TYPE arrayD                            ; arrayD [ 3 ]的偏移量
+        mov eax,arrayD[esi]                                  ; EAX = 400h
+        Intel 设计师希望能让编译器编写者的常用操作更容易，因此，他们提供了一种计算偏移量的方法，即使用比例因子。比例因子是数组元素的大小（字 = 2，双字 =4，四字 =8）。
+        现在对刚才的例子进行修改，将数组下标（3）送入 ESI，然后 ESI 乘以双字的比例因子（4）：
+        .data
+        arrayD DWORD 1,2,3,4
+        .code 
+        mov esi, 3                               ;下标
+        mov eax,arrayD[esi*4]                    ;EAX = 4
+        TYPE 运算符能让变址更加灵活，它可以让 arrayD 在以后重新定义为别的类型：
+        mov esi, 3                         ;下标 
+        mov eax,arrayD[esi*TYPE arrayD]    ;EAX = 4
+
+    指针
+        如果一个变量包含另一个变量的地址，则该变量称为指针。指针是控制数组和数据结构的重要工具，因为，它包含的地址在运行时是可以修改的。
+        比如，可以使用系统调用来分配（保留）一个内存块，再把这个块的地址保存在一个变量中。
+
+        指针的大小受处理器当前模式（32位或64位）的影响。下例为 32 位的代码，ptrB 包含了 arrayB 的偏移量：
+        .data
+        arrayB byte 10h,20h,30h,40h
+        ptrB dword arrayB
+        还可以用 OFFSET 运算符来定义 ptrB，从而使得这种关系更加明确：
+        ptrB dword OFFSET arrayB
+        32 位模式程序使用的是近指针，因此，它们保存在双字变量中。这里有两个例子：ptrB 包含 arrayB 的偏移量，ptrW 包含 arrayW 的偏移量：
+        arrayB BYTE 10h,20h,30h,40h
+        arrayW WORD 1000h,2000h,3000h
+        ptrB    DWORD arrayB
+        ptrW    DWORD arrayW
+        同样，也还可以用 OFFSET 运算符使这种关系更加明确：
+        ptrB DWORD OFFSET arrayB
+        ptrW DWORD OFFSET arrayW
+        高级语言刻意隐藏了指针的物理细节，这是因为机器结构不同，指针的实现也有差异。汇编语言中，由于面对的是单一实现，因此是在物理层上检查和使用指针。这样有助于消除围绕着指针的一些神秘感。
+        
+        使用 TYPEDEF 运算符
+        TYPEDEF 运算符可以创建用户定义类型，这些类型包含了定义变量时内置类型的所有状态。它是创建指针变量的理想工具。比如，下面声明创建的一个新数据类型 PBYTE 就是一个字节指针：
+        PBYTE TYPEDEF PTR BYTE
+        这个声明通常放在靠近程序开始的地方，在数据段之前。然后，变量就可以用 PBYTE 来定义：
+        .data
+        arrayB BYTE 10h,20h,30h,40h
+        ptr1 PBYTE ?                              ;未初始化
+        ptr2 PBYTE arrayB                     ;指向一个数组
+
+    示例程序
+        TITLE Pointers            (Pointers.asm)
+        .386
+        .model flat,stdcall
+        .stack 4096
+        ExitProcess proto,dwExitCode:dword
+        ;创建用户定义类型
+        PBYTE TYPEDEF PTR BYTE                ;字节指针
+        PWORD TYPEDEF PTR WORD                ;字指针
+        PDWORD TYPEDEF PTR DWORD            ;双字指针
+
+        .data
+        arrayB BYTE 10h,20h,30h
+        arrayW WORD 1,2,3
+        arrayD DWORD 4,5,6
+        ;创建几个指针变量
+        ptr1 PBYTE arrayB
+        ptr2 PWORD arrayW
+        ptr3 PDWORD arrayD
+
+        .code
+        main PROC
+        ;使用指针访问数据
+            mov esi,ptr1
+            mov al,[esi]                    ;10h
+            mov esi,ptr2
+            mov ax,[esi]                    ;1
+            mov esi,ptr3
+            mov eax,[esi]                    ;4
+            invoke ExitProcess,0
+        main ENDP
+        END main
+4.运行时堆栈
+    运行时堆栈是内存数组，CPU 用 ESP（扩展堆栈指针，extended stack pointer）寄存器对其进行直接管理，该寄存器被称为堆栈指针寄存器（stack pointer register）。
+
+    32位模式下，ESP 寄存器存放的是堆栈中某个位置的 32 位偏移量。
+    ESP 基本上不会直接被程序员控制，反之，它是用 CALL、RET、PUSH 和 POP 等指令间接进行修改。
+
+    运行时堆栈在程序中有一些重要用途：
+        当寄存器用于多个目的时，堆栈可以作为寄存器的一个方便的临时保存区。在寄存器被修改后，还可以恢复其初始值。
+        执行 CALL 指令时，CPU 在堆栈中保存当前过程的返回地址。
+        调用过程时，输入数值也被称为参数，通过将其压入堆栈实现参数传递。
+        堆栈也为过程局部变量提供了临时存储区域。        
