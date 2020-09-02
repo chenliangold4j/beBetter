@@ -110,7 +110,7 @@
     dec BYTE PTR [rdi]              ;8 位目标操作数
     inc WORD PTR [rbx]              ;16 位目标操作数
     inc QWORD PTR [rsi]             ;64 位目标操作数
-    
+
     64 位模式下，可以对间接操作数使用比例因子，就像在 32 位模式下一样。如下例所示，如果处理的是 64 位整数数组，比例因子就是 8：
     .data
     array QWORD 1,2,3,4
@@ -124,3 +124,22 @@
     或者，还可以用 OFFSET 运算符来定义 ptrB，使得这个关系更加明确：
     纯文本复制
     ptrB QWORD OFFSET arrayB
+
+4.
+    大多数情况下，64 位模式中的 64 位指令与 32 位模式中的操作是一样的。比如，如果源操作数是常数，长度小于 32 位，而目的操作数是一个 64 位寄存器或内存操作数，
+    那么，目的操作数中所有的位都会受到影响：
+    .data
+    allones QWORD 0FFFFFFFFFFFFFFFFh
+    .code
+        mov rax,allones                  ;RAX = FFFFFFFFFFFFFFFF
+        and rax,80h                      ;RAX = 0000000000000080
+        mov rax,allones                  ;RAX = FFFFFFFFFFFFFFFF
+        and rax,8080h                    ;RAX = 0000000000008080
+        mov rax,allones                  ;RAX = FFFFFFFFFFFFFFFF
+        and rax,808080h                  ;RAX = 0000000000808080
+    但是，如果源操作数是 32 位常数或寄存器，那么目的操作数中，只有低 32 位会受到影响。如下例所示，只有 RAX 的低 32 位被修改了：
+    mov rax,allones                                  ;RAX = FFFFFFFFFFFFFFFF
+    and rax,80808080h                            ;RAX = FFFFFFFF80808080
+
+    当目的操作数是内存操作数时，得到的结果是一样的。显然，32 位操作数是一个特殊的情况，需要与其他大小操作数的情况分开考虑。
+

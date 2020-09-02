@@ -335,3 +335,64 @@ END main
         MySub ENDP
         当 CALL 指令执行时如下图所示，调用之后的地址（0000 0025）被压入堆栈，MySub 的地址加载到 EIP。
         执行 MySub 中的全部指令直到 RET 指令。当执行 RET 指令时，ESP 指向的堆栈数值被弹岀到 EIP。在步骤 2 中，ESP 的数值增加，从而指向堆栈中的前一个值。
+
+22.示例：
+    下面的程序通过传递一个 32 位整数数组的偏移量和长度来测试 ArraySum 过程。调用 ArraySum 之后，程序将过程的返回值保存在变量 theSum 中。
+
+    ;测试ArraySum过程
+    .386
+    .model flat,stdcall
+    .stack 4096
+    ExitProcess PROTO,dwExitCode:DWORD
+
+    .data
+    array DWORD 10000h,20000h,30000h,40000h,50000h
+    theSum DWORD ?
+
+    .code
+    main PROC
+        mov esi,OFFSET array          ;ESI指向数组
+        mov ecx,LENGTHOF array        ;ECX = 数组计算器
+        call ArraySum                 ;计算和数
+        mov theSum,eax                ;用EAX返回和数
+
+        INVOKE ExitProcess,0
+    main ENDP
+    ;------------------------------------
+    ;ArraySum
+    ;计算32位整数数组元素之和
+    ;接收：ESI = 数组偏移量
+    ;       ECX = 数组元素的个数
+    ;返回：EAX = 数组元素之和
+    ;-------------------------------------
+    ArraySum PROC
+        push esi                 ;保存ESI和ECX
+        push ecx
+        mov eax,0                ;设置和数为0
+
+    L1：    add eax,[esi]        ;将每个整数与和数相加
+        add esi,TYPE DWORD      ;指向下一个整数
+
+        loop L1                 ;按照数组大小重复
+    
+        pop ecx                 ;恢复ECX和ESI
+        pop esi               
+        ret                     ;和数在EAX中
+    ArraySum ENDP
+    END  main
+
+23.USES 运算符
+    USES 运算符与 PROC 伪指令一起使用，让程序员列出在该过程中修改的所有寄存器名。
+    USES 告诉汇编器做两件事情：第一，在过程开始时生成 PUSH 指令，将寄存器保存到堆栈；第二，在过程结束时生成 POP 指令，从堆栈恢复寄存器的值。
+
+    在 ArraySum 过程使用 PUSH 和 POP 指令来保存和恢复 ESI 和 ECX。 USES 运算符能够更加容易地实现同样的功能：
+    ArraySum PROC USES esi ecx
+    mov eax, 0                   ;置和数为0
+    L1:
+    add eax,[esi]                ;将每个整数与和数相加
+    add esi, TYPE DWORD          ;指向下个整数
+    loop L1                      ;按照数组大小重复
+    ret                          ;和数在 EAX 中
+    ArraySum ENDP
+
+    
