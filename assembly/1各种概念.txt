@@ -285,3 +285,13 @@
 
     重启动标志RF用来控制是否接受调试故障。规定：RF=0时，表示“接受”调试故障，否则拒绝之。在成功执行完一条指令后，处理机把RF置为0，当接受到一个非调试故障时，处理机就把它置为1。
 
+5.过程嵌套调用：
+       .data
+        theSum DWORD ?
+        .code
+        main PROC
+        mov eax, 10000h          ;参数
+        mov ebx, 20000h          ;参数
+        mov ecx, 30000h          ;参数
+        call Sumof               ;EAX=(EAX+EEX+ECX)
+        mov theSum,eax           ;保存和数
