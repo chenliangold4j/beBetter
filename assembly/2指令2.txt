@@ -205,3 +205,204 @@
     if ECX > 0 and ZF = 0, jump to destination
 
     否则，不发生跳转，并将控制传递到下一条指令。
+
+10.示例：
+    .data
+    array  SWORD  -3,-6,-1,-10,10,30,40,4
+    sentinel SWORD  0
+
+    .code
+    main PROC
+    mov esi,OFFSET array
+    mov ecx,LENGTHOF array
+
+    next:
+    test WORD PTR [esi],8000h    ; 测试符号位
+    pushfd                       ; 标志位入栈
+    add  esi,TYPE array          ; 移动到下一个位置
+    popfd                        ; 标志位出栈
+    loopnz next                  ; 继续循环
+    jnz  quit                    ; 没有发现非负数
+    sub  esi,TYPE array          ; ESI 指向数值
+    quit:
+
+11.汇编IF
+    在汇编语言中，这种 IF 语句转换为条件跳转和 CMP 指令。
+    下面实现 IF 语句的程序是高效的，当逻辑表达式为真时，它允许代码“通过”直达两条期望被执行的 MOV 指令：
+        mov eax, op1
+        cmp eax,op2                  ; op1 == op2?
+        jne L1                       ; 否：跳过后续指令
+        mov X, 1                     ; 是：X, Y 赋值
+        mov Y, 2
+    L1:
+    如果用 JE 来实现 == 运算符，生成的代码就没有那么紧凑了（6 条指令，而非 5 条指令）：
+            mov    eax, op1
+            cmp    eax,op2              ; op1 == op2?
+            je    L1                    ; 是：跳转到 L1
+            jmp    L2                   ; 否：跳过赋值语句
+    LI：    mov X, 1                    ; X, Y 赋值
+            mov    Y, 2
+    L2 :
+    从上面的例子可以看出，相同的条件结构在汇编语言中有多种实现方法。上面给出 的编译代码示例只代表一种假想的编译器可能产生的结果。
+
+
+12.汇编逻辑表达
+    1.AND
+    汇编语言很容易实现包含 AND 运算符的复合布尔表达式。考虑下面的伪代码，假设其中进行比较的是无符号整数：
+    if (a1 > b1) AND (b1 > c1)
+        X = 1
+    end if
+
+    短路求值
+    下面的例子是短路求值的简单实现，如果第一个表达式为假，则不需计算第二个表达式。高级语言的规范如下：
+            cmp a1,b1                  ;第一个表达式…
+            ja L1
+            jmp next
+    L1:     cmp b1, c1                 ;第二个表达式…
+            ja L2
+            jmp next
+    L2:   mov X, 1                     ;全为真：将 X 置 1
+    next:
+    如果把第一条 JA 指令替换为 JBE，就可以把代码减少到 5 条：
+    纯文本复制
+            cmp    a1,b1                  ; 第一个表达式…
+            jbe next                      ; 如果假，则退出
+            cmp    b1,c1                  ; 第二个表达式…
+            jbe next                      ; 如果假，则退出
+            mov    X, 1                   ; 全为真
+    next:
+    若第一个 JBE 不执行，CPU 可以直接执行第二个 CMP 指令，这样就能够减少 29% 的代码量（指令数从 7 条减少到 5 条）。
+
+
+    2.OR
+    当复合表达式包含的子表达式是用 OR 运算符连接的，那么只要一个子表达式为真，则整个复合表达式就为真。以如下伪代码为例：
+    if (a1 > b1) OR (b1 > c1)
+        X = 1
+
+    在下面的实现过程中，如果第一个表达式为真，则代码分支到 L1；否则代码直接执行第二个 CMP 指令。第二个表达式翻转了 > 运算符，并使用了 JBE 指令：
+            cmp a1, b1                  ; 1：比较 AL 和 BL
+            ja L1                       ; 如果真，跳过第二个表达式
+            cmp b1, c1                  ; 2：比较 BL 和 CL
+            jbe next                    ; 假：跳过下一条语句
+    L1:     mov X, 1                    ; 真：将 x 置 1
+    next:
+    对于一个给定的复合表达式而言，汇编语句有多种实现方法。
+
+13.汇编while
+    用汇编语言实现这个结构时，可以很方便地改变循环条件，当条件为真时，跳转到 endwhile。假设 val1 和 val2 都是变量，那么在循环开始之前必须将其中的一个变量送入寄存器，并且还要在最后恢复该变量的值：
+            mov eax, val1                  ; 把变量复制到 EAX
+    beginwhile:
+            cmp eax, val2                  ; 如果非 val1 < val2
+            jnl     endwhile               ; 退出循环
+            inc    eax                     ; val1++;
+            dec    val2                    ; val2--;
+            jmp    beginwhile              ; 重复循环
+    endwhile:
+            mov    val1, eax                ;保存 val1 的新值
+    在循环内部，EAX 是 val1 的代理（替代品），对 val1 的引用必须要通过 EAX。JNL 的使用意味着 val1 和 val2 是有符号整数。
+14.示例：if家while
+    c++
+    int array[] = {10,60,20,33,72,89,45,65,72,18};
+    int sample  =  50;
+    int ArraySize = sizeof array / sizeof sample;
+    int index = 0;
+    int sum  =  0;
+    while( index < ArraySize )
+    {
+        if( array[index] > sample )
+        {
+            sum += array[index];
+        }
+        index++;
+    }
+
+    汇编
+    array DWORD 10,60,20,33,72,89,45,65,72,18
+    ArraySize = ($ - Array) / TYPE array
+
+    .code
+    main PROC
+        mov    eax,0                           ; 求和
+        mov    edx,sample
+        mov    esi,0                           ; 索引
+        mov    ecx,ArraySize
+
+    L1: cmp    esi,ecx                         ; 如果 esi < ecx
+        jl    L2
+        jmp    L5
+
+    L2: cmp    array[esi*4], edx               ; 如果array[esi] > edx
+        jg    L3
+        jmp    L4
+    L3: add    eax,array[esi*4]
+
+    L4: inc    esi
+        jmp    L1
+
+    L5: mov    sum,eax
+
+16.表驱动选择：
+    示例程序
+    用户从键盘输入一个字符。通过循环，该字符与表的每个表项进行比较。第一个匹配的查询值将会产生一个调用，
+    调用对象是紧接在该查询值后面的过程偏移量。每个过程加载到 EDX 的偏移量都代表了一个不同的字符串，它将在循环中显示：
+    ; 过程偏移量表          (ProcTble.asm)
+    ; 本程序包含了过程偏移量表格
+    ; 使用这个表执行间接过程调用
+    INCLUDE Irvine32.inc
+    .data
+    CaseTable  BYTE   'A'                  ; 查询值
+            DWORD   Process_A           ; 过程地址
+            BYTE   'B'
+            DWORD   Process_B
+            BYTE   'C'
+            DWORD   Process_C
+            BYTE   'D'
+            DWORD   Process_D
+    NumberOfEntries = 4
+    prompt BYTE "Press capital A,B,C,or D: ",0
+    ;为每个过程定义一个单独的消息字串
+    msgA BYTE "Process_A",0
+    msgB BYTE "Process_B",0
+    msgC BYTE "Process_C",0
+    msgD BYTE "Process_D",0
+    .code
+    main PROC
+        mov  edx,OFFSET prompt              ; 请求用户输入
+        call WriteString
+        call ReadChar                       ; 读取字符到AL
+        mov  ebx,OFFSET CaseTable           ; 设 EBX 为表指针
+        mov  ecx,NumberOfEntries            ; 循环计数器
+    L1:
+        cmp  al,[ebx]                       ; 出现匹配项?
+        jne  L2                             ; 否: 继续
+        call NEAR PTR [ebx + 1]             ; 是: 调用过程
+    ;这个 CALL 指令调用过程，其地址保存在 EBX+1 指向的内存位置中，像这样的间接调用需要使用 NEAR PTR 运算符
+        call WriteString                    ; 显示消息
+        call Crlf
+        jmp  L3                             ; 推出搜索
+        add  ebx,5                          ; 指向下一个表项
+        loop L1                             ; 重复直到 ECX = 0
+    L3:
+        exit
+    main ENDP
+    ;下面的每个过程向EDX加载不同字符串的偏移量
+    Process_A PROC
+        mov  edx,OFFSET msgA
+        ret
+    Process_A ENDP
+    Process_B PROC
+        mov  edx,OFFSET msgB
+        ret
+    Process_B ENDP
+    Process_C PROC
+        mov  edx,OFFSET msgC
+        ret
+    Process_C ENDP
+    Process_D PROC
+        mov  edx,OFFSET msgD
+        ret
+    Process_D ENDP
+    END main
+    表驱动选择有一些初始化开销，但是它能减少编写的代码总量。一个表就可以处理大量的比较，并且与一长串的比较、跳转和 CALL 指令序列相比，它更加容易修改。甚至在运行时，表还可以重新配置。
+
+

@@ -1,0 +1,260 @@
+1.位移
+    x86 处理器在这方面提供了相当丰富的指令集如下表所示，这些指令都会影响溢出标志位和进位标志位。
+
+    SHL	左移	ROR	循环右移
+    SHR	右移	RCL	带进位的循环左移
+    SAL	算术左移	RCR 	带进位的循环右移
+    SAR	算术右移	SHLD	双精度左移
+    ROL	循环左移	SHRD	双精度右移
+
+
+    逻辑移位和算术移位
+    移动操作数的位有两种方法。第一种是逻辑移位 (logic shift)，空出来的位用 0 填充。如下图所示，一个字节的数据向右移动一位。
+    也就是说，每一位都被移动到其旁边的低位上。注意，位 7 被填充为 0：
+
+
+    另一种移位的方法是算术移位 (arithmetic shift)，空出来的位用原数据的符号位填充：
+
+    例如，二进制数 1100 1111，符号位为 1。算术右移一位后，得到 1110 0111：
+
+2.SHL（左移）
+    指令使目的操作数逻辑左移一位，最低位用 0 填充。最高位移入进位标志位，而进位标志位中原来的数值被丢弃：
+    若将 1100 1111 左移 1 位，该数就变为 1001 1110：
+
+    SHL 的第一个操作数是目的操作数，第二个操作数是移位次数：
+    SHL destination,count
+
+    该指令可用的操作数类型如下所示：
+    SHL reg, imm8
+    SHL mem, imm8
+    SHL reg, CL
+    SHL mem, CL
+
+    x86 处理器允许 imm8 为 0〜255 中的任何整数。另外，CL 寄存器包含的是移位计数。上述格式同样适用于 SHR、SAL、SAR、ROR、ROL、RCR 和 RCL 指令。
+
+    下列指令中，BL 左移一位。最高位复制到进位标志位，最低位填充 0：
+    mov b1, 8Fh          ; BL = 10001111b
+    shl bl, 1                 ; CF = 1, BL = 00011110b
+
+3.SHR（右移）
+    指令使目的操作数逻辑右移一位，最高位用 0 填充。最低位复制到进位标志位，而进位标志位中原来的数值被丢弃：
+    mov al, 0D0h     ; AL = 11010000b
+    shr al, 1              ; AL = 01101000b, CF = 0
+4.SAL和SAR指令 
+    SAL 与 SAR 指令的操作数类型与 SHL 和 SHR 指令完全相同。移位可以重复执行，其次数由第二个操作数给出的计数器决定：
+    SAR destination, count
+
+    下面的例子展示了 SAR 是如何复制符号位的。执行指令前 AL 的符号位为负，执行指令后该位移动到右边的位上：
+    mov al, 0F0h ; AL = 11110000b (-16)
+    sar al, 1     ; AL = 11111000b (-8) , CF = 0
+
+5.   ROL（循环左移）
+   指令把所有位都向左移。最高位复制到进位标志位和最低位。该指令格式与 SHL 指令相同：
+    位循环不会丢弃位。从数的一端循环出去的位会出现在该数的另一端。在下例中，请注意最高位是如何复制到进位标志位和位 0 的：
+    mov al,40h        ; AL = 01000000b
+    rol al,1               ; AL = 10000000b, CF = 0
+    rol al,1               ; AL = 00000001b, CF = 1
+    rol alz1              ; AL = 00000010b, CF = 0
+6.ROR（循环右移）
+    在下例中，请注意最低位是如何复制到进位标志位和结果的最高位的：
+    mov al, 0lh          ; AL = 00000001b
+    ror al, 1               ; AL = 10000000b, CF = 1
+    ror al, 1               ; AL = 01000000b, CF = 0
+
+7.RCL（带进位循环左移）
+    指令把每一位都向左移，进位标志位复制到 LSB，而 MSB 复制到进位标志位
+    clc                             ; CF = 0
+    mov bl, 88h              ; CF,BL = 0 1000100Ob
+    rcl bl, 1                     ; CF,BL = 1 00010000b
+    rcl b1, 1                    ; CF,BL = 0 00100001b.
+
+    从进位标志位恢复位
+    RCL 可以恢复之前移入进位标志位的位。下面的例子把 testval 的最低位移入进位标志位，并对其进行检查。如果 testval 的最低位为 1，则程序跳转；
+    如果最低位为 0，则用 RCL 将该数恢复为初始值：
+    .data
+    testval BYTE 01101010b
+    .code
+    shr testval, 1          ; 将lsb移入进位标志位
+    jc exit                     ; 如果该标志位置 1，则退出
+    rcl testval, 1           ; 否则恢复该数原值    
+
+    RCR 指令
+    RCR（带进位循环右移）指令把每一位都向右移，进位标志位复制到 MSB，而 LSB 复制到进位标志位：
+
+    从上图来看，RCL 指令将该整数转化成了一个 9 位值，进位标志位位于 LSB 的右边。下面的示例代码用 STC 将进位标志位置 1，然后，对 AH 寄存器执行一次带进位循环右移操作：
+    stc                            ; CF = 1
+    mov ah, 10h             ; AH, CF = 00010000 1
+    rcr ah, 1                    ; AH, CF = 10001000 0
+8.SHLD（双精度左移）
+    指令将目的操作数向左移动指定位数。移动形成的空位由源操作数的高位填充。源操作数不变，但是符号标志位、零标志位、辅助进位标志位、奇偶标志位和进位标志位会受影响：
+    SHLD dest, source, count
+
+    SHRD（双精度右移）指令将目的操作数向右移动指定位数。移动形成的空位由源操作数的低位填充：
+    SHRD dest, source, count
+
+
+9.，MUL（无符号数乘法）
+    乘数和被乘数的大小必须保持一致，乘积的大小则是它们的一倍。这三种类型都可以使用寄存器和内存操作数，但不能使用立即数：
+    MUL reg/mem8
+    MUL reg/meml6
+    MUL reg/mem32
+
+    32 位模式下，MUL（无符号数乘法）指令有三种类型：
+    第一种执行 8 位操作数与 AL 寄存器的乘法；
+    第二种执行 16 位操作数与 AX 寄存器的乘法；
+    第三种执行 32 位操作数与 EAX 寄存器的乘法。
+
+
+    MUL 指令中的单操作数是乘数。下表按照乘数的大小，列出了默认的被乘数和乘积。由于目的操作数是被乘数和乘数大小的两倍，因此不会发生溢岀。
+
+    被乘数	乘数	乘积
+    AL	reg/mem8	AX
+    AX	reg/mem16	DX:AX
+    EAX	reg/mem32	EDX:EAX
+
+
+    下述语句实现 16 位值 2000h 乘以 0100h。由于乘积的高半部分（存放于 DX）不等于零，因此进位标志位被置 1：
+    .data
+    val1 WORD 2000h
+    val2 WORD 0l00h
+    .code
+    mov ax, val1           ; AX = 2000h
+    mul val2               ; DX:AX = 00200000h, CF = 1
+
+    下述语句实现 12345h 乘以 1000h，产生的 64 位乘积存放在 EDX 和 EAX 寄存器对中。EDX 中存放的乘积高半部分为零，因此进位标志位被清除：
+    mov eax, 12345h
+    mov ebx, 1000h
+    mul ebx                   ; EDX:EAX = 0000000012345000h, CF = 0
+
+    64 位模式下，MUL 指令可以使用 64 位操作数。一个 64 位寄存器或内存操作数与 RAX 相乘，产生的 128 位乘积存放到 RDX:RAX 寄存器中。下例中，RAX 乘以 2，就是将 RAX 中的每一位都左移一位。RAX 的最高位溢出到 RDX 寄存器，使得 RDX 的值为 0000 0000 0000 0001h：
+    mov rax, 0FFFF0000FFFF0000h
+    mov rbx, 2
+    mul rbx                     ; RDX:RAX = 0000000000000001FFFE0001FFFE0000
+
+10.IMUL（有符号数乘法)
+    单操作数格式
+    单操作数格式将乘积存放在 AX、DX:AX 或 EDX:EAX 中：
+    IMUL reg/mem8    ; AX = AL * reg/mem8
+    IMUL reg/meml6    ; DX:AX = AX * reg/meml6
+    IMUL reg/mem32    ; EDX:EAX = EAX * reg/mem32
+
+    双操作数格式（32位模式）
+    32 位模式中的双操作数 IMUL 指令把乘积存放在第一个操作数中，这个操作数必须是寄存器。第二个操作数（乘数）可以是寄存器、内存操作数和立 即数。16位格式如下所示：
+    IMUL regl6, reg/meml6
+    IMUL regl6, imm8
+    IMUL regl6, imml6
+
+    32 位操作数类型如下所示，乘数可以是 32 位寄存器、32 位内存操作数或立即数（8 位 或 32 位）：
+    IMUL reg32, reg/mem32
+    IMUL reg32, inun8
+    IMUL reg32, imm32
+
+    双操作数格式会按照目的操作数的大小来截取乘积。如果被丢弃的是有效位，则溢出标志位和进位标志位置 1。因此，在执行了有两个操作数的 IMUL 操作后，必须检查这些标志位中的一个。
+    三操作数格式
+    32 位模式下的三操作数格式将乘积保存在第一个操作数中。第二个操作数可以是 16 位寄存器或内存操作数，它与第三个操作数相乘，该操作数是一个8位或16 位立即数：
+    IMUL regl6, reg/meml6,imm8
+    IMUL regl6, reg/meml6, iirrnl6
+
+    而 32 位寄存器或内存操作数可以与 8 位或 32 位立即数相乘：
+    IMUL reg32, reg/mem32, imm8
+    IMUL reg32, reg/mem32, imm32
+
+    IMUL 执行时，若乘积有效位被丢弃，则溢出标志位和进位标志位置 1。因此，在执行了有三个操作数的 IMUL 操作后，必须检查这些标志位中的一个。
+11.测量程序用时
+    通常，程序员发现用测量执行时间的方法来比较一段代码与另一段代码执行的性能是很有用的。Microsoft Windows API 为此提供了必要的工具，
+    lrvine32 库中的 GetMseconds 过程可使其变得更加方便使用。该过程获取系统自午夜过后经过的毫秒数。
+
+    在下面的代码示例中，首先调用 GetMseconds，这样就可以记录系统开始时间。然后调用想要测量其执行时间的过程 (FirstProcedureToTest)。最后，再次调用 GetMseconds，计算开始时间和当前毫秒数的差值：
+    .data
+    startTime DWORD ?
+    procTime1 DWORD ?
+    procTime2 DWORD ?
+    .code
+    call GetMseconds    ;获得开始时间
+    mov startTime, eax
+    .
+    call FirstProcedureToTest
+    .
+    call GetMseconds     ;获得结束时间
+    sub eax, startTime   ;计算执行花费的时间
+    mov procTime1, eax   ;保存执行花费的时间
+    当然，两次调用 GetMseconds 会消耗一点执行时间。但是在衡量两个代码实现的性能时间之比时，这点开销是微不足道的。现在，调用另一个被测试的过程，并保存其执行时间 (procTime2)：
+    纯文本复制
+    call GetMseconds                ;获得开始时间
+    mov startTime, eax
+    .
+    call SecondProcedureToTest
+    .
+    call GetMseconds                ;获得结束时间
+    sub eax, startTime              ;计算执行花费的时间
+    mov procTime2, eax              ;保存执行花费的时间
+    则 procTime1 和 procTime2 的比值就可以表示这两个过程的相对性能。
+
+12.MUL、IMUL 与移位的比较
+    对老的 x86 处理器来说，用移位操作实现乘法和用 MUL、IMUL 指令实现乘法之间有着明显的性能差异。可以用 GetMseconds 程比较这两种类型乘法的执行时间。下面的两个过程重复执行乘法，用常量 LOOP_COUNT 决定重复的次数：
+    mult_by_shifting PROC
+    ;
+    ;用 SHL 执行 EAX 乘以 36,执行次数为LOOP_COUNT
+        mov ecx, LOOP_COUNT
+    L1: push eax                    ;保存原始 EAX
+        mov ebx, eax
+        shl eax, 5
+        shl ebx, 2
+        add eax, ebx
+        pop eax                      ;恢复 EAX
+        loop LI
+        ret
+    mult_by_shifting ENDP
+    mult_by_MUL PROC
+    ;
+    ;用MUL执行EAX乘以36,执行次数为LOOP_COUNT
+        mov ecx, LOOP_COUNT
+    LI: push eax                    ;保存原始 EAX
+        mov ebx, 36
+        mul ebx
+        pop eax                      ;恢复 EAX
+        loop L1
+        ret
+    mult_by_MUL ENDP
+    下述代码调用 multi_by_shifting，并显示计时结果。
+    .data
+    LOOP_COUNT = 0FFFFFFFFh
+    .data
+    intval DWORD 5
+    startTime DWORD ?
+    .code
+    main PROC
+        call    GetMseconds          ; 获取开始时间
+        mov    startTime,eax
+        mov    eax,intval            ; 开始乘法
+        call    mult_by_shifting
+        call    GetMseconds          ; 获取结束时间
+        sub    eax,startTime
+        call    WriteDec             ; 显示乘法执行花费的时间
+    用同样的方法调用 mult_by_MUL，在传统的 4GHz 奔腾 4 处理器上运行的结果为：SHL 方法执行时间是 6.078 秒，MUL 方法执行时间是 20.718 秒。也就是说，使用 MUL 指令速度会慢 2.41 倍。
+
+    但是，在近期的处理器上运行同样的程序，调用两个函数的时间是完全一样的。这个例子说明，Intel 在近期的处理器上已经设法大大地优化了 MUL 和 IMUL 指令。
+
+13.DIV
+    32 位模式下，DIV（无符号除法）指令执行 8 位、16 位和 32 位无符号数除法。其中，单寄存器或内存操作数是除数。格式如下：
+    DIV reg/mem8
+    DIV reg/meml6
+    DIV reg/mem32
+
+    下表给出了被除数、除数、商和余数之间的关系：
+
+    被除数	除数	商	余数
+    AX	reg/mem8	AL	AH
+    DX:AX	reg/mem16	AX	DX
+    EDX:EAX	reg/mem32	EAX	EDX
+    64 位模式下，DIV 指令用 RDX:RAX 作被除数，用 64 位寄存器和内存操作数作除数, 商存放到 RAX，余数存放在 RDX 中。
+
+    下述指令执行 32 位无符号除法，其除数为内存操作数：
+    .data
+    dividend QWORD 0000000800300020h
+    divisor DWORD 00000100h
+    .code
+    mov edx, DWORD PTR dividend + 4  ; 高双字
+    mov eax, DWORD PTR dividend      ; 低双字
+    div divisor                      ; EAX = 08003000h, EDX = 00000020h
+

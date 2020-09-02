@@ -1,3 +1,4 @@
+http://c.biancheng.net/asm/
 1. 32位寄存器概述（16个）：
     4个数据（通用）寄存器：(EAX、EBX、ECX、EDX)。
     6个段寄存器：（ES、CS、SS、DS、FS、GS）。
