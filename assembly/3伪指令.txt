@@ -128,3 +128,74 @@
         SumOf ENDP
         用高级语言，如 C 和 C++，编写的函数，通常用 AL 返回 8 位的值，用 AX 返回 16 位的值，用 EAX 返回 32 位的值。
 
+11.LOCAL 伪指令
+    如果要使用 LOCAL 伪指令，它必须紧跟在 PROC 伪指令的后面。
+    【示例】MySub 过程包含一个局部变量 var1，其类型为 BYTE：
+    MySub PROC
+    LOCAL var1:BYTE
+
+    BubbleSort 过程包含一个双字局部变量 temp 和一个类型为 BYTE 的 SwapFlag 变量：
+    BubbleSort PROC
+    LOCAL temp:DWORD, SwapFlag:BYTE
+
+    Merge 过程包含一个类型为 PTR WORD 的局部变量 pArray，它是一个 16 位整数的指针：
+    Merge PROC
+    LOCAL pArray:PTR WORD
+
+    局部变量 TempArray 是一个数组，包含 10 个双字。请注意用方括号显示数组大小：
+    LOCAL TempArray[10]:DWORD
+12.INVOKE 伪指令
+    只用于 32 位模式，将参数入栈（按照 MODEL 伪指令的语言说明符所指定的顺序）并调用过程。INVOKE 是 CALL 指令一个方便的替代品，因为，它用一行代码就能传递多个参数。常见语法如下：
+    INVOKE procedureName [, argumentList]
+
+    ArgumentList 是可选项，它用逗号分隔传递给过程的参数。例如，执行若干 PUSH 指令后调用 DumpArray 过程，使用 CALL 指令的形式如下：
+    push TYPE array
+    push LENGTHOF array
+    push OFFSET array
+    call DumpArray
+
+    使用等效的 INVOKE 则将代码减少为一行，列表中的参数逆序排列（假设遵循 STDCALL 规范）：
+    INVOKE DumpArray, OFFSET array, LENGTHOF array, TYPE array
+
+    如果向过程传递的参数小于 32 位，那么在将参数入栈之前，INVOKE 为了扩展参数常常会使得汇编器覆盖 EAX 和 EDX 的内容。有两种方法可以避免这种情况：
+    其一，传递给 INVOKE 的参数总是 32 位的；
+    其二，在过程调用之前保存 EAX 和 EDX，在过程调用之后再恢复它们的值。
+
+13.ADDR 运算符
+    ADDR 运算符同样可用于 32 位模式，在使用 INVOKE 调用过程时，它可以传递指针参数。
+    INVOKE FillArray, ADDR myArray
+    下例中的 INVOKE 伪指令调用 Swap，并向其传递了一个双字数组前两个元素的地址：
+    .data
+    Array DWORD 20 DUP(?)
+    .code
+    ...
+    INVOKE Swap,
+        ADDR Array,
+        ADDR [Array+4]
+
+    假设使用 STDCALL 规范，那么汇编器生成的相应代码如下所示：
+    push OFFSET Array+4
+    push OFFSET Array
+    call Swap
+
+
+14.PROC 伪指令
+    label PROC [attributes] [USES reglist], parameter_list
+    Label 是按照《LABEL伪指令》一节中说明的标识符规则、由用户定义的标号。Attributes 是指下述任一内容：
+    [distance] [langtype] [visibility] [prologuearg]
+    属性	    说明
+    distance	NEAR 或 FAR。指定汇编器生成的 RET 指令（RET 或 RETF）类型
+    langtype	指定调用规范（参数传递规范），如 C、PASCAL 或 STDCALL。能覆盖由 .MODEL 伪指令指定的语言
+    visibility	指明本过程对其他模块的可见性。选项包括 PRIVATE、PUBLIC （默认项）和 EXPORT。若可见性为 EXPORT，则链接器把过程名放入分段可执行文件的导出表。EXPORT 也使之具有了 PUBLIC 可见性
+    prologuearg	指定会影响开始和结尾代码生成的参数
+
+15.PROTO 伪指令
+    PROTO 伪指令指定程序的外部过程，示例如下：
+    ExitProcess PROTO
+    .code
+    mov ecx, 0
+    call ExitProcess
+    然而在 32 位模式中，PROTO 是一个更有用的工具，因为它可以包含过程参数列表。可以说，PROTO 伪指令为现有过程创建了原型 (prototype)。
+    原型声明了过程的名称和参数列表。它还允许在定义过程之前对其进行调用，并验证参数的数量和类型是否与过程的定义相匹配。
+
+    

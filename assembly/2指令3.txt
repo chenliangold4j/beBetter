@@ -243,8 +243,8 @@
 
     下表给出了被除数、除数、商和余数之间的关系：
 
-    被除数	除数	商	余数
-    AX	reg/mem8	AL	AH
+    被除数	 除数	     商	余数
+    AX	    reg/mem8	AL	AH
     DX:AX	reg/mem16	AX	DX
     EDX:EAX	reg/mem32	EAX	EDX
     64 位模式下，DIV 指令用 RDX:RAX 作被除数，用 64 位寄存器和内存操作数作除数, 商存放到 RAX，余数存放在 RDX 中。
@@ -258,3 +258,114 @@
     mov eax, DWORD PTR dividend      ; 低双字
     div divisor                      ; EAX = 08003000h, EDX = 00000020h
 
+14.IDIV 指令
+
+    符号扩展指令（CBW、CWD、CDQ）
+    Intel 提供了三种符号扩展指令：CBW、CWD 和 CDQ。CBW（字节转字）指令将 AL 的符号位扩展到 AH，保留了数据的符号。如下例所示，9Bh（AL 中）和 FF9Bh （AX 中）都等于十进制的 -101：
+    .data
+    byteVal SBYTE -101     ; 9Bh
+    .code
+    mov al, byteVal        ; AL = 9Bh
+    cbw                    ; AX = FF9Bh
+    CWD（字转双字）指令将 AX 的符号位扩展到 DX：
+    .data
+    wordVal SWORD -101     ; FF9Bh
+    .code
+    mov ax, wordVal         ; AX = FF9Bh
+    cwd                     ; DX:AX = FFFFFF9Bh
+    CDQ（双字转四字）指令将 EAX 的符号位扩展到 EDX：
+    .data
+    dwordVal SDWORD -101    ; FFFFFF9Bh
+    .code
+    mov eax, dwordVal
+    Cdq                     ; EDX:EAX = FFFFFFFFFFFFFF9Bh
+
+    IDIV 指令
+    IDIV（有符号除法）指令执行有符号整数除法，其操作数与 DIV 指令相同。执行 8 位除法之前，被除数（AX）必须完成符号扩展。余数的符号总是与被除数相同。
+
+    【示例 1】下述指令实现 -48 除以 5。IDIV 执行后，AL 中的商为 -9，AH 中的余数为 -3：
+    .data
+    byteVal SBYTE -48       ;D0 十六进制
+    .code
+    mov al, byteVal         ;被除数的低字节
+    cbw                     ;AL扩展到AH
+    mov bl,+5               ;除数
+    idiv bl                 ;AL = -9, AH = -3
+
+15.ADC（带进位加法）
+    该指令格式与 ADD 指令一样，且操作数大小必须相同：
+    ADC reg, reg
+    ADC mem, reg
+    ADC reg, mem
+    ADC mem, imm
+    ADC reg, imm
+
+    例如，下述指令实现两个 8 位整数相加 (FFh+FFh)，产生的 16 位和数存入 DL:AL，其值为 01FEh：
+    mov dl, 0
+    mov al, 0FFh
+    add al, 0FFh     ; AL = FEh
+    adc dl, 0        ; DL/AL = OlFEh
+
+16.SBB（带借位减法）
+
+
+17.AAA
+    在 32 位模式下，AAA ( 加法后的 ASCII 调整 ) 指令调整 ADD 或 ADC 指令的二进制运算结果。设两个 ASCII 数字相加，
+    其二进制结果存放在 AL 中，则 AAA 将 AL 转换为两个非压缩十进制数字存入 AH 和 AL。
+    一旦成为非压缩格式，通过将 AH 和 AL 与 30h 进 OR 运算，很容易就能把它们转换为 ASCII 码。
+
+    下例展示了如何用 AAA 指令正确地实现 ASCII 数字 8 加 2。在执行加法之前，必须把 AH 清零，否则它将影响 AAA 执行的结果。最后一条指令将 AH 和 AL 转换为 ASCII 数字：
+    mov ah, 0
+    mov al, '8'                     ; AX = 0038h
+    add al, '2'                     ; AX = 006Ah
+    aaa                             ; AX = 0100h (结果进行 ASCII 调整)
+    or ax, 3030h                    ; AX = 3130h ='10' (转换为 ASCH 码)
+
+18.AAS
+    32 位模式下，AAS（减法后的 ASCII 调整）    
+    AAS（减法后的 ASCII 调整）指令紧随 SUB 或 SBB 指令之后，这两条指令执行两个非压缩十进制数的减法，并将结果保存到 AL 中。AAS 指令将 AL 转换为 ASCII 码的数字形式。
+    只有减法结果为负时，调整才是必需的。比如，下面的语句实现 ASCII 码 数字 8 减去 9：
+    .data
+    val1 BYTE '8'
+    val2 BYTE '9'
+    .code
+    mov ah, 0
+    mov al,val1            ; AX = 0038h
+    sub al,val2            ; AX = OOFFh
+    aas                    ; AX = FF09h
+    pushf                  ; 保存进位标志位
+    or al,30h              ; AX = FF39h
+    popf                   ; 恢复进位标志位
+
+19.AAM（乘法后的 ASCII 调整)
+    32 位模式下，MUL 执行非压缩十进制乘法，AAM（乘法后的 ASCII 调整）指令转换由其产生的二进制乘积。乘法只能使用非压缩十进制数。
+
+    下面的例子实现 5 乘以 6，并调整 AX 中的结果。调整后，AX=0300h，非压缩十进制表示为 30：
+    .data
+    AscVal BYTE 05h, 06h
+    .code
+    mov bl, ascVal      ;第一个操作数
+    mov al, [ascVal+1]  ;第二个操作数
+    mul bl              ;AX = 001Eh
+    aam                 ;AX = 0300h
+
+20.DAA（加法后的十进制调整）
+    32 位模式下，ADD 或 ADC 指令在 AL 中生成二进制和数，DAA（加法后的十进制调整）指令将和数转换为压缩十进制格式。比如，下述指令执行压缩十进制数 35 加 48。二进制和数（7Dh）被调整为 83h，即 35 和 48 的压缩十进制和数。
+    mov al, 35h
+    add al, 48h        ; AL = 7Dh
+    daa                    ; AL = 83h （调整后的结果）
+21.DAS（减法后的十进制调整）
+    2 位模式下，SUB 或 SBB 指令在 AL 中生成二进制结果，DAS（减法后的十进制调整）指令将其转换为压缩十进制格式。
+
+    具体调整规则如下：
+    如果 AL 的低四位大于 9，或 AF=1，那么，AL=AL-06H，并置 AF=1；
+    如果 AL 的高四位大于 9，或 CF=1，那么，AL=AL-60H，并置 CF=1；
+    如果以上两点都不成立，则清除标志位 AF 和 CF。
+
+    经过调整后，AL 的值仍是压缩型 BCD 码，即：二个压缩型 BCD 码相减，并进行调整后，得到的结果还是压缩型 BCD 码。
+
+    比如，下面的语句计算压缩十进制数 85 减 48，并调整结果：
+    mov bl,48h
+    mov al,85h
+    sub al,bl   ; AL = 3Dh
+    das         ; AL = 37h （调整后的结果）

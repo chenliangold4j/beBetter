@@ -1,0 +1,74 @@
+1.堆栈
+    多年以来，Microsoft 在 32 位程序中包含了一种参数传递规则，称为 fastcall。如同这个名字所暗示的，只需简单地在调用子程序之前把参数送入寄存器，就可以将运行效率提高一些。
+    相反，如果把参数压入堆栈，则执行速度就要更慢一点。
+
+    典型用于参数的寄存器包括 EAX、EBX、ECX 和 EDX，少数情况下，还会使用 EDI 和 ESI。可惜的是，这些寄存器在用于存放数据的同时，还用于存放循环计数值以及参与计算的操作数。
+
+
+2.esp ebp
+    esp是栈指针，是cpu机制决定的，push、pop指令会自动调整esp的值；
+
+    ebp只是存取某时刻的esp，这个时刻就是进入一个函数内后，cpu会将esp的值赋给ebp，此时就可以通过ebp对栈进行操作，比如获取函数参数，局部变量等，实际上使用esp也可以；
+
+    既然使用esp也可以，那么为什么要设定ebp呢？
+
+    答案是为了方便程序员。
+
+    因为esp在函数运行时会不断的变化，所以保存一个一进入某个函数的esp到ebp中会方便程序员访问参数和局部变量，而且还方便调试器分析函数调用过程中的堆栈情况。
+    前面说了，这个ebp不是必须要有的，你非要使用esp来访问函数参数和局部变量也是可行的，只不过这样会麻烦一些。   
+3.LEA 指令
+    LEA 指令返回间接操作数的地址。
+    现在来看下面的 C++ 程序，该程序声明了一个局部数组 myString，并引用它来分配数组值：
+    void makeArray()
+    {
+        char myString[30];
+        for ( int i = 0; i < 30; i++ )
+            myString[i] = '*';
+    }
+    与之等效的汇编代码在堆栈中为 myString 分配空间，并将地址（间接操作数）赋给 ESI。虽然数组只有 30 个字节，但是 ESP 还是递减了 32 以对齐双字边界。注意如何使用 LEA 把数组地址分配给 ESI：
+    纯文本复制
+    makeArray PROC
+        push ebp
+        mov ebp,esp
+        sub esp, 32            ;myString 位于 EBP-30 的位置
+        lea esi, [ebp-30]      ;加载 myString 的地址
+        mov ecx, 30            ;循环计数器
+    LI: mov BYTE PTR [esi]     ;填充一个位置
+        inc esi                ;指向下一个元素
+        loop LI                ;循环，直到 ECX=0
+        add esp, 32            ;删除数组(恢复ESP)
+        pop ebp
+        ret
+    makeArray ENDP
+    不能用 OFFSET 获得堆栈参数的地址，因为 OFFSET 只适用于编译时已知的地址。下面的语句无法汇编：
+    mov esi,OFFSET [ebp-30 ]    ;错误
+
+4.ENTER和LEAVE指令
+    ENTER 指令为被调用过程自动创建堆栈帧。它为局部变量保留堆栈空间，把 EBP 入栈。具体来说，它执行三个操作：
+    把 EBP 入栈 (push ebp)
+    把 EBP 设置为堆栈帧的基址 (mov ebp, esp)
+    为局部变量保留空间 (sub esp, numbytes)
+
+    LEAVE 指令结束一个过程的堆栈帧。它反转了之前的 ENTER 指令操作：恢复了过程被调用时 ESP 和 EBP 的值。再次以 MySub 过程为例，现在可以编码如下：
+    MySub PROC
+        enter 8,0
+        .
+        .
+        leave
+        ret
+    MySub ENDP
+
+    下面是与之等效的指令序列，其功能是在堆栈中保存和删除 8 个字节的局部变量：
+    MySub PROC
+        push ebp
+        mov ebp, esp
+        sub esp, 8
+        .
+        .
+        mov esp, ebp
+        pop ebp
+        ret
+    MySub ENDP
+
+5.ADDR 运算符
+    
