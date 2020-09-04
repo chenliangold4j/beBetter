@@ -70,5 +70,59 @@
         ret
     MySub ENDP
 
-5.ADDR 运算符
-    
+5.string primitives
+    x86 指令集有五组指令用于处理字节、字和双字数组。虽然它们被称为字符串原语 (string primitives)，但它们并不局限于字符数组。32 位模式中，
+    下表中的每条指令都隐含使用 ESI、EDI，或是同时使用这两个寄存器来寻址内存。
+
+    指令	                 说明
+    MOVSB、MOVSW、MOVSD  	传送字符串数据：将 ESI 寻址的内存数据复制到 EDI 寻址的内存位置
+    CMPSB、CMPSW、CMPSD	    比较字符串：比较分别由 ESI 和 EDI 寻址的内存数据
+    SCASB、SCASW、SCASD	    扫描字符串：比较累加器 (AL、AX 或 EAX) 与 EDI 寻址的内存数据
+    STOSB、STOSW、STOSD  	保存字符串数据：将累加器内容保存到 EDI 寻址的内存位置
+    LODSB、LODSW、LODSD  	从字符串加载到累加器：将 ESI 寻址的内存数据加载到累加器
+
+    根据指令数据大小，对累加器的引用隐含使用 AL、AX 或 EAX。字符串原语能高效执行，因为它们会自动重复并增加数组索引。
+
+    使用重复前缀
+    就其自身而言，字符串基本指令只能处理一个或一对内存数值。如果加上重复前缀，指令就可以用 ECX 作计数器重复执行。重复前缀使得单条指令能够处理整个数组。下面为可用的重复前缀：
+
+    REP	ECX > 0 时重复
+    REPZ、REPE	零标志位置 1 且 ECX > 0 时重复
+    REPNZ、REPNE	零标志位清零且 ECX > 0 时重复
+    【示例】复制字符串：下面的例子中，MOVSB 从 string1 传送 10 个字节到 string2。重复前缀在执行 MOVSB 指令之前，首先测试 ECX 是否大于 0。若 ECX=0，MOVSB 指令被忽略，控制传递到程序的下一行代码；若 ECX>0，则 ECX 减 1 并重复执行 MOVSB 指令：
+    cld                                              ;清除方向标志位
+    mov esi, OFFSET string1            ; ESI 指向源串
+    mov edi, OFFSET string2           ; EDI 执行目的串
+    mov ecx, 10                               ;计数器赋值为10
+    rep movsb                                 ;传送io个字节
+
+    重复 MOVSB 指令时，ESI 和 EDI 自动增加，这个操作由 CPU 的方向标志位控制。
+
+    方向标志位
+    根据方向标志位的状态，字符串基本青令增加或减少 ESI 和 EDI 如下表所示。可以用 CLD 和 STD 指令显式修改方向标志位：
+    CLD ;方向标志位清零（正向）
+    STD ;方向标志位置 1（反向）
+
+6.MOVSB、MOVSW 和 MOVSD 指令将数据从 ESI 指向的内存位置复制到 EDI 指向的内存位置。（根据方向标志位的值）这两个寄存器自动地增加或减少：
+
+    指令 	ESI 和 EDI 增加或减少的数值
+    MOVSB	1
+    MOVSW	2
+    MOVSD	4
+
+7.CMPSB、CMPSW 和 CMPSD 指令比较 ESI 指向的内存操作数与 EDI 指向的内存操作数：
+
+    CMPSB	比较字节
+    CMPSW	比较字
+    CMPSD	比较双字
+
+8.SCASB、SCASW 和 SCASD 指令分别将 AL/AX/EAX 中的值与 EDI 寻址的一个字节 / 字 / 双字进行比较。这些指令可用于在字符串或数组中寻找一个数值。结合 REPE（或 REPZ）前缀，当 ECX > 0 且 AL/AX/EAX 的值等于内存中每个连续的值时，不断扫描字符串或数组。
+
+
+    REPNE 前缀也能实现扫描，直到 AL/AX/EAX 与某个内存数值相等或者 ECX = 0。
+
+9.STOSB、STOSW 和 STOSD 指令分别将 AL/AX/EAX 的内容存入由 EDI 中偏移量指向的内存位置。EDI 根据方向标志位的状态递增或递减。
+
+10.LODSB、LODSW 和 LODSD 指令分别从 ESI 指向的内存地址加载一个字节或一个字到 AL/AX/EAX。ESI 按照方向标志位的状态递增或递减。
+
+11.
