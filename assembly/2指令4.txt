@@ -26,7 +26,6 @@
             myString[i] = '*';
     }
     与之等效的汇编代码在堆栈中为 myString 分配空间，并将地址（间接操作数）赋给 ESI。虽然数组只有 30 个字节，但是 ESP 还是递减了 32 以对齐双字边界。注意如何使用 LEA 把数组地址分配给 ESI：
-    纯文本复制
     makeArray PROC
         push ebp
         mov ebp,esp
